@@ -23,8 +23,7 @@ func main() {
 	htmls := parseUrl(urls)
 	saveHtmls(htmls, *dirPtr)
 
-	elapsed := time.Since(start)
-	fmt.Println("Время завершение программы", elapsed)
+	fmt.Println("Время завершение программы", time.Since(start))
 }
 
 // saveHtmls - сохраняет html файлы в директори
@@ -32,10 +31,11 @@ func saveHtmls(htmlData []string, pathDir string) {
 	if _, err := os.Stat(pathDir); os.IsNotExist(err) {
 		fmt.Println("Папки не существует\nБудет создана новая папка")
 
-		// 0755 это права доспута
+		// 0777 это права доступа
 		err := os.MkdirAll(pathDir, 0777)
 		if err != nil {
-			panic(err)
+			fmt.Println("Неудалось создать директорию")
+			os.Exit(1)
 		}
 	}
 
