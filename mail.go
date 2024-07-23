@@ -8,82 +8,94 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
+	start := time.Now()
+
 	urlPtr := flag.String("url", "urls.txt", "путь к файлу с url")
 	dirPtr := flag.String("dir", "htmls", "путь к папку с html страницами")
 
 	flag.Parse()
 
-	urls := readFile(*urlPtr)
+	urls := getUrlsFromFile(*urlPtr)
 	htmls := parseUrl(urls)
 	saveHtmls(htmls, *dirPtr)
+
+	elapsed := time.Since(start)
+	fmt.Println("Время завершение программы", elapsed)
 }
 
-func saveHtmls(htmls []string, path string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Println("Folder not exitst\nCreating new folder")
+// saveHtmls - сохраняет html файлы в директори
+func saveHtmls(htmlData []string, pathDir string) {
+	if _, err := os.Stat(pathDir); os.IsNotExist(err) {
+		fmt.Println("Папки не существует\nБудет создана новая папка")
 
 		// 0755 это права доспута
-		err := os.MkdirAll(path, 0755)
+		err := os.MkdirAll(pathDir, 0777)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	for i, v := range htmls {
-		pathFile := path + "/" + strconv.Itoa(i+1) + ".html"
+	// сохрание данных html в файлы
+	for i, html := range htmlData {
+		pathFile := pathDir + "/" + strconv.Itoa(i+1) + ".html"
 
 		file, err := os.Create(pathFile)
 		if err != nil {
-			panic(err)
+			fmt.Println("Неудалось создать файл", err)
+			continue
 		}
 
-		_, err = file.WriteString(v)
+		_, err = file.WriteString(html)
 		if err != nil {
-			fmt.Println("Error while writing file")
+			fmt.Println("Ошибка при записи в файл", err)
 			continue
 		}
 
 		file.Close()
 	}
 
-	fmt.Println("Files created")
+	fmt.Println("Файлы созданы")
 }
 
+// parseUrl - парсит url и возращает срез html
 func parseUrl(urls []string) []string {
-	validUrls := []string{}
+	htmlData := []string{}
 
 	for _, url := range urls {
 		if url == "" {
-			fmt.Println("bad address:", url)
+			fmt.Println("Неверный адрес:", url)
 			continue
 		}
 
 		resp, err := http.Get(url)
 		if err != nil {
-			fmt.Println("bad address:", url)
+			fmt.Println("Неверный адрес:", url)
 			continue
 		}
 		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			panic(err)
+			fmt.Println("Не удалось считать ответ", err)
+			continue
 		}
 
-		validUrls = append(validUrls, string(body))
+		htmlData = append(htmlData, string(body))
 	}
 
-	return validUrls
+	return htmlData
 }
 
-func readFile(path string) []string {
+// getUrlsFromFile - Возврящает url из файла
+func getUrlsFromFile(path string) []string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println("cant read file with urls")
-		panic(err)
+		fmt.Println("Нет файла с url-ами")
+		os.Exit(1)
 	}
 
 	urls := strings.Split(string(data), "\n")
