@@ -48,6 +48,7 @@ func addFlags() (*string, *string, error) {
 	dirPtr := flag.String("dir", "", "путь к папку с html страницами")
 
 	flag.Parse()
+	flag.PrintDefaults()
 
 	if *urlPtr == "" {
 		currentDir, err := os.Getwd()
@@ -55,7 +56,7 @@ func addFlags() (*string, *string, error) {
 			return nil, nil, fmt.Errorf("ошибка при чтении корневого каталога: %s", err)
 		}
 		urlPtr = &defaultUrlFlag
-		fmt.Printf("Должен быть установлен флаг --url, который отвечает за путь к файлу с url адресами.\nПуть по умолчанию: %s\n\n", currentDir+"/"+defaultUrlFlag)
+		fmt.Printf("Должен быть установлен флаг --url, который отвечает за путь к файлу с url адресами.\nПуть по умолчанию: %s/%s\n\n", currentDir, defaultUrlFlag)
 	}
 
 	if *dirPtr == "" {
@@ -84,13 +85,12 @@ func getUrlsFromFile(pathFileUrl string) ([]string, error) {
 
 // getHtmlData - возвращает срез html полученных из url-ов
 func getHtmlData(urls []string) []string {
-	htmlDataSlice := []string{}
+	htmlDataSlice := make([]string, len(urls))
 	var wg sync.WaitGroup
-	var mu sync.Mutex
 
-	for _, url := range urls {
+	for index, url := range urls {
 		wg.Add(1)
-		go func(url string, wg *sync.WaitGroup) {
+		go func(url string, index int, wg *sync.WaitGroup) {
 			defer wg.Done()
 			htmlData, err := parseUrl(url)
 			if err != nil {
@@ -98,11 +98,8 @@ func getHtmlData(urls []string) []string {
 				return
 			}
 			fmt.Printf("Успешный ответ: %s\n", url)
-
-			mu.Lock()
-			htmlDataSlice = append(htmlDataSlice, htmlData)
-			mu.Unlock()
-		}(url, &wg)
+			htmlDataSlice[index] = htmlData
+		}(url, index, &wg)
 	}
 	wg.Wait()
 
@@ -150,6 +147,10 @@ func saveHtmlsInDir(htmlData []string, pathDir string) error {
 
 	// сохрание данных html в файлы
 	for indexHtml, html := range htmlData {
+		if html == "" {
+			continue
+		}
+
 		wg.Add(1)
 		go func(indexHtml int, pathDir string, html string, wg *sync.WaitGroup) {
 			defer wg.Done()
