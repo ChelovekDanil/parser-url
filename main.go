@@ -47,6 +47,7 @@ func addFlags() (*string, *string, error) {
 	dirPtr := flag.String("dir", "", "путь к папку с html страницами")
 
 	flag.Parse()
+	flag.PrintDefaults()
 
 	if *urlPtr == "" {
 		currentDir, err := os.Getwd()
@@ -54,7 +55,7 @@ func addFlags() (*string, *string, error) {
 			return nil, nil, fmt.Errorf("ошибка при чтении корневого каталога: %s", err)
 		}
 		urlPtr = &defaultUrlFlag
-		fmt.Printf("Должен быть установлен флаг --url, который отвечает за путь к файлу с url адресами.\nПуть по умолчанию: %s\n\n", currentDir+"/"+defaultUrlFlag)
+		fmt.Printf("Должен быть установлен флаг --url, который отвечает за путь к файлу с url адресами.\nПуть по умолчанию: %s/%s\n\n", currentDir, defaultUrlFlag)
 	}
 
 	if *dirPtr == "" {
