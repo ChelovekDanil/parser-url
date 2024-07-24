@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -50,24 +51,32 @@ func saveHtmls(htmlData []string, pathDir string) {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	// сохрание данных html в файлы
 	for indexHtml, html := range htmlData {
-		pathFile := pathDir + "/" + strconv.Itoa(indexHtml+1) + ".html"
+		wg.Add(1)
 
-		file, err := os.Create(pathFile)
-		if err != nil {
-			fmt.Println("Неудалось создать файл", err)
-			continue
-		}
+		go func(i int, html string) {
+			defer wg.Done()
 
-		_, err = file.WriteString(html)
-		if err != nil {
-			fmt.Println("Ошибка при записи в файл", err)
-			continue
-		}
+			pathFile := pathDir + "/" + strconv.Itoa(i+1) + ".html"
 
-		file.Close()
+			file, err := os.Create(pathFile)
+			if err != nil {
+				fmt.Println("Неудалось создать файл", err)
+				return
+			}
+			defer file.Close()
+
+			_, err = file.WriteString(html)
+			if err != nil {
+				fmt.Println("Ошибка при записи в файл", err)
+				return
+			}
+		}(indexHtml, html)
 	}
+	wg.Wait()
 
 	fmt.Println("Файлы созданы")
 }
@@ -75,33 +84,44 @@ func saveHtmls(htmlData []string, pathDir string) {
 // parseUrl - парсит url и возвращает срез html
 func parseUrl(urls []string) []string {
 	htmlData := []string{}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, url := range urls {
-		if url == "" {
-			fmt.Println("Неверный адрес:", url)
-			continue
-		}
+		wg.Add(1)
 
-		resp, err := http.Get(url)
-		if err != nil {
-			fmt.Println("Неверный адрес:", url)
-			continue
-		}
-		defer resp.Body.Close()
+		go func(url string) {
+			defer wg.Done()
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Не удалось считать ответ", err)
-			continue
-		}
+			if url == "" {
+				fmt.Println("Неверный адрес:", url)
+				return
+			}
 
-		htmlData = append(htmlData, string(body))
+			resp, err := http.Get(url)
+			if err != nil {
+				fmt.Println("Неверный адрес:", url)
+				return
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("Не удалось считать ответ", err)
+				return
+			}
+
+			mu.Lock()
+			htmlData = append(htmlData, string(body))
+			mu.Unlock()
+		}(url)
 	}
+	wg.Wait()
 
 	return htmlData
 }
 
-// getUrlsFromFile - Возвращает url из файла
+// getUrlsFromFile - возвращает url из файла
 func getUrlsFromFile(path string) []string {
 	fileData, err := os.ReadFile(path)
 	if err != nil {
