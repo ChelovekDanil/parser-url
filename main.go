@@ -15,6 +15,16 @@ import (
 func main() {
 	start := time.Now()
 
+	urlPtr, dirPtr := addFlags()
+
+	urls := getUrlsFromFile(*urlPtr)
+	htmls := parseUrl(urls)
+	saveHtmls(htmls, *dirPtr)
+
+	fmt.Println("Время завершение программы", time.Since(start))
+}
+
+func addFlags() (*string, *string) {
 	defaultUrlFlag := "urls.txt"
 	defaultDirFlag := "htmls"
 
@@ -31,11 +41,7 @@ func main() {
 		fmt.Println("Флаг не найден, будет использоваться значение по умолчанию:", defaultDirFlag)
 	}
 
-	urls := getUrlsFromFile(*urlPtr)
-	htmls := parseUrl(urls)
-	saveHtmls(htmls, *dirPtr)
-
-	fmt.Println("Время завершение программы", time.Since(start))
+	return urlPtr, dirPtr
 }
 
 // saveHtmls - сохраняет html файлы в директори
@@ -57,10 +63,10 @@ func saveHtmls(htmlData []string, pathDir string) {
 	for indexHtml, html := range htmlData {
 		wg.Add(1)
 
-		go func(i int, html string) {
+		go func(indexhtml int, html string, pathDir string, wg *sync.WaitGroup) {
 			defer wg.Done()
 
-			pathFile := pathDir + "/" + strconv.Itoa(i+1) + ".html"
+			pathFile := pathDir + "/" + strconv.Itoa(indexhtml+1) + ".html"
 
 			file, err := os.Create(pathFile)
 			if err != nil {
@@ -74,7 +80,7 @@ func saveHtmls(htmlData []string, pathDir string) {
 				fmt.Println("Ошибка при записи в файл", err)
 				return
 			}
-		}(indexHtml, html)
+		}(indexHtml, html, pathDir, &wg)
 	}
 	wg.Wait()
 
@@ -90,7 +96,7 @@ func parseUrl(urls []string) []string {
 	for _, url := range urls {
 		wg.Add(1)
 
-		go func(url string) {
+		go func(url string, wg *sync.WaitGroup) {
 			defer wg.Done()
 
 			if url == "" {
@@ -114,7 +120,7 @@ func parseUrl(urls []string) []string {
 			mu.Lock()
 			htmlData = append(htmlData, string(body))
 			mu.Unlock()
-		}(url)
+		}(url, &wg)
 	}
 	wg.Wait()
 
