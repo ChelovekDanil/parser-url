@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -84,22 +85,28 @@ func getUrlsFromFile(pathFileUrl string) ([]string, error) {
 
 // getHtmlData - возвращает срез html полученных из url-ов
 func getHtmlData(urls []string) []string {
-	htmlDataSlice := []string{}
+	htmlDataSlice := make([]string, len(urls))
+	var wg sync.WaitGroup
 
-	for _, url := range urls {
-		htmlData, err := parseUrl(url)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		fmt.Printf("Успешный ответ: %s\n", url)
-		htmlDataSlice = append(htmlDataSlice, htmlData)
+	for index, url := range urls {
+		wg.Add(1)
+		go func(url string, index int, wg *sync.WaitGroup) {
+			defer wg.Done()
+			htmlData, err := parseUrl(url)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Printf("Успешный ответ: %s\n", url)
+			htmlDataSlice[index] = htmlData
+		}(url, index, &wg)
 	}
+	wg.Wait()
 
 	return htmlDataSlice
 }
 
-// parseUrl - парсит url и возвращает html
+// parseUrl - парсит url и возвращает срез html
 func parseUrl(url string) (string, error) {
 	if url == "" {
 		return "", fmt.Errorf("неверный адрес: %s", url)
@@ -136,13 +143,24 @@ func saveHtmlsInDir(htmlData []string, pathDir string) error {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	// сохрание данных html в файлы
 	for indexHtml, html := range htmlData {
-		err := createHtmlFile(indexHtml, pathDir, html)
-		if err != nil {
-			fmt.Printf("неудалось создать файл: %s", err)
+		if html == "" {
+			continue
 		}
+
+		wg.Add(1)
+		go func(indexHtml int, pathDir string, html string, wg *sync.WaitGroup) {
+			defer wg.Done()
+			err := createHtmlFile(indexHtml, pathDir, html)
+			if err != nil {
+				fmt.Printf("неудалось создать файл: %s", err)
+			}
+		}(indexHtml, pathDir, html, &wg)
 	}
+	wg.Wait()
 
 	fmt.Println("Файлы созданы")
 	return nil

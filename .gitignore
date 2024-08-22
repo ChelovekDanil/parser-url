@@ -1,4 +1,5 @@
-*.bin
-*.exe
-*.o
-*.obj
+# испоняемый файл golang
+mod
+
+# html страницы
+htmls
